@@ -1,0 +1,27 @@
+{
+  "name": "com.muyu.auto-radial-menu",
+  "displayName": "Auto Radial Menu / 自动轮盘",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "为 VRChat Avatar 自动生成 Radial Puppet 大轮盘，可直接用轮盘切换对象或批量替换多个 SkinnedMeshRenderer 的多个材质。",
+  "author": {
+    "name": "muyuawa",
+    "url": "https://github.com/muyuawa"
+  },
+  "license": "MIT",
+  "url": "https://github.com/muyuawa/AutoRadialMenu",
+  "keywords": [
+    "vrchat",
+    "avatar",
+    "radial-puppet",
+    "modular-avatar",
+    "ndmf",
+    "material",
+    "unity"
+  ],
+  "vpmDependencies": {
+    "com.vrchat.avatars": ">=3.10.4 <4.0.0",
+    "nadena.dev.modular-avatar": ">=1.18.1 <2.0.0-a",
+    "nadena.dev.ndmf": ">=1.14.3 <2.0.0-a"
+  }
+}
