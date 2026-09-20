@@ -1,0 +1,16 @@
+{
+  "name": "com.muyu.auto-radial-menu.runtime",
+  "rootNamespace": "AutoRadialMenu",
+  "references": [
+    "nadena.dev.modular-avatar.core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
