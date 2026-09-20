@@ -1,0 +1,21 @@
+{
+  "name": "com.muyu.auto-radial-menu.editor",
+  "rootNamespace": "AutoRadialMenu",
+  "references": [
+    "com.muyu.auto-radial-menu.runtime",
+    "nadena.dev.modular-avatar.core",
+    "nadena.dev.ndmf",
+    "VRC.SDK3A"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
