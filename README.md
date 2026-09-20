@@ -196,32 +196,7 @@ SkinnedMeshRenderer.m_Materials.Array.data[index]
 
 的 Object Reference Animation Curve 同步切换多个材质。
 
-## 轮盘档位数量
 
-Radial Puppet 使用 Float 参数。实际使用时不建议创建过多极密集档位。
-
-当前插件代码本身不会强制限制条目数量，但建议保持在易于手动控制的范围内。
-
-## Inspector 易用性
-
-材质模式提供：
-
-- 多对象批量拖放
-- 自动扫描全部 SkinnedMeshRenderer
-- 自动识别全部材质
-- 对象卡片折叠 / 展开
-- 全部展开 / 全部折叠
-- 对象顺序调整
-- 替换材质顺序调整
-- 多材质一次拖入
-- 原材质只读预览
-- 对象数 / 材质数 / 轮盘档位摘要
-
-## 兼容性说明
-
-当前版本保留了早期序列化字段的迁移逻辑，用于尽可能兼容旧版组件数据。
-
-建议升级后检查一次 Inspector，确认对象和材质列表符合预期。
 
 ## License
 
