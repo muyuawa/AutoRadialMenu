@@ -11,7 +11,15 @@ namespace AutoRadialMenu
         public enum ActionMode
         {
             ObjectToggle = 0,
-            MaterialReplacement = 1
+            MaterialReplacement = 1,
+            BlendShape = 2
+        }
+
+        [Serializable]
+        public sealed class BlendShapeTarget
+        {
+            public SkinnedMeshRenderer renderer;
+            public List<string> blendShapeNames = new List<string>();
         }
 
         // 旧版数据结构保留，仅用于已有场景/Prefab 的兼容迁移。
@@ -76,6 +84,14 @@ namespace AutoRadialMenu
 
         [Tooltip("材质替换模式下由同一个大轮盘同步控制的多个材质对象。")]
         [SerializeField] private List<MaterialTarget> materialTargets = new List<MaterialTarget>();
+
+        [Tooltip("形态键模式下同步由 0 到 100 调节的对象与形态键。")]
+        [SerializeField] private List<BlendShapeTarget> blendShapeTargets = new List<BlendShapeTarget>();
+
+        public List<BlendShapeTarget> BlendShapeTargets
+        {
+            get { return blendShapeTargets; }
+        }
 
         // 以下字段只为旧版序列化兼容保留，不再显示或参与新版配置。
         [HideInInspector, SerializeField] private SkinnedMeshRenderer materialRenderer;
@@ -146,4 +162,3 @@ namespace AutoRadialMenu
         }
     }
 }
-

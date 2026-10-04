@@ -33,7 +33,7 @@ namespace AutoRadialMenu
             mode.enumValueIndex = EditorGUILayout.Popup(
                 "功能",
                 mode.enumValueIndex,
-                new[] { "开关对象", "替换材质" }
+                new[] { "开关对象", "替换材质", "形态键（0–100）" }
             );
             EditorGUILayout.EndVertical();
 
@@ -41,6 +41,10 @@ namespace AutoRadialMenu
             if ((AutoRadialMenu.ActionMode)mode.enumValueIndex == AutoRadialMenu.ActionMode.ObjectToggle)
             {
                 DrawObjectMode();
+            }
+            else if ((AutoRadialMenu.ActionMode)mode.enumValueIndex == AutoRadialMenu.ActionMode.BlendShape)
+            {
+                DrawBlendShapeMode();
             }
             else
             {
@@ -52,6 +56,177 @@ namespace AutoRadialMenu
             EditorGUILayout.Space(6);
             EditorGUILayout.HelpBox("构建时自动生成 VRChat 大轮盘，不修改当前编辑场景。", MessageType.Info);
             DrawInstallTarget();
+        }
+
+        private void DrawBlendShapeMode()
+        {
+            EditorGUILayout.LabelField("形态键轮盘", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("添加一个或多个对象，再在各对象下方多选形态键。轮盘会将所有选中的形态键同步从 0 连续调节到 100。", MessageType.Info);
+            var targets = serializedObject.FindProperty("blendShapeTargets");
+            DrawDropArea("拖入多个对象 / 蒙皮网格渲染器（包含子对象）",
+                reference => reference is GameObject || reference is SkinnedMeshRenderer,
+                objects => AddBlendShapeTargets(targets, objects));
+
+            for (var i = 0; i < targets.arraySize; i++)
+            {
+                var item = targets.GetArrayElementAtIndex(i);
+                var rendererProperty = item.FindPropertyRelative("renderer");
+                var names = item.FindPropertyRelative("blendShapeNames");
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.BeginHorizontal();
+                EditorGUI.BeginChangeCheck();
+                EditorGUILayout.PropertyField(rendererProperty, new GUIContent("对象 " + (i + 1)));
+                if (EditorGUI.EndChangeCheck()) names.ClearArray();
+                if (GUILayout.Button("×", GUILayout.Width(26)))
+                {
+                    targets.DeleteArrayElementAtIndex(i);
+                    SaveSerializedChanges();
+                    GUIUtility.ExitGUI();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                var renderer = rendererProperty.objectReferenceValue as SkinnedMeshRenderer;
+                var mesh = renderer != null ? renderer.sharedMesh : null;
+                if (mesh == null || mesh.blendShapeCount == 0)
+                {
+                    EditorGUILayout.HelpBox(renderer == null ? "请选择含蒙皮网格渲染器的对象。" : "该对象的网格没有形态键。", MessageType.Warning);
+                }
+                else
+                {
+                    var rect = EditorGUILayout.GetControlRect();
+                    rect = EditorGUI.PrefixLabel(rect, new GUIContent("形态键（可多选）"));
+                    if (EditorGUI.DropdownButton(rect, new GUIContent("已选 " + names.arraySize + " / " + mesh.blendShapeCount + " 个"), FocusType.Keyboard))
+                    {
+                        serializedObject.ApplyModifiedProperties();
+                        PopupWindow.Show(rect, new BlendShapePicker(target, item.propertyPath, renderer, Repaint));
+                    }
+
+                    if (names.arraySize == 0)
+                        EditorGUILayout.HelpBox("请从下拉框中勾选一个或多个形态键。", MessageType.Warning);
+                    else
+                    {
+                        var selectedNames = new List<string>();
+                        var missingNames = new List<string>();
+                        for (var n = 0; n < names.arraySize; n++)
+                        {
+                            var name = names.GetArrayElementAtIndex(n).stringValue;
+                            selectedNames.Add(name);
+                            if (mesh.GetBlendShapeIndex(name) < 0) missingNames.Add(name);
+                        }
+                        EditorGUILayout.LabelField(string.Join("、", selectedNames), EditorStyles.wordWrappedMiniLabel);
+                        if (missingNames.Count > 0)
+                            EditorGUILayout.HelpBox("以下形态键已不存在，请在下拉框中取消选择：" + string.Join("、", missingNames), MessageType.Warning);
+                    }
+                }
+                EditorGUILayout.EndVertical();
+            }
+
+            if (GUILayout.Button("＋ 添加形态键对象"))
+            {
+                var item = targets.GetArrayElementAtIndex(targets.arraySize++);
+                item.FindPropertyRelative("renderer").objectReferenceValue = null;
+                item.FindPropertyRelative("blendShapeNames").ClearArray();
+            }
+        }
+
+        private void AddBlendShapeTargets(SerializedProperty targets, IEnumerable<UnityEngine.Object> objects)
+        {
+            var existing = new HashSet<UnityEngine.Object>();
+            for (var i = 0; i < targets.arraySize; i++)
+                existing.Add(targets.GetArrayElementAtIndex(i).FindPropertyRelative("renderer").objectReferenceValue);
+            var added = false;
+            foreach (var renderer in objects.SelectMany(ResolveRenderers).Distinct())
+            {
+                if (renderer.sharedMesh == null || renderer.sharedMesh.blendShapeCount == 0 || !existing.Add(renderer)) continue;
+                var item = targets.GetArrayElementAtIndex(targets.arraySize++);
+                item.FindPropertyRelative("renderer").objectReferenceValue = renderer;
+                item.FindPropertyRelative("blendShapeNames").ClearArray();
+                added = true;
+            }
+            if (added) SaveSerializedChanges();
+            else Debug.Log("[自动轮盘] 没有新增对象：拖入对象及其子对象没有形态键，或已经在列表中。");
+        }
+
+        // 使用可滚动的复选弹窗，避免 MaskField 的 32 位限制；点击复选框后保持打开。
+        private sealed class BlendShapePicker : PopupWindowContent
+        {
+            private readonly UnityEngine.Object owner;
+            private readonly string propertyPath;
+            private readonly SkinnedMeshRenderer renderer;
+            private readonly Action repaint;
+            private string search = string.Empty;
+            private Vector2 scroll;
+
+            public BlendShapePicker(UnityEngine.Object owner, string propertyPath, SkinnedMeshRenderer renderer, Action repaint)
+            {
+                this.owner = owner;
+                this.propertyPath = propertyPath;
+                this.renderer = renderer;
+                this.repaint = repaint;
+            }
+
+            public override Vector2 GetWindowSize() { return new Vector2(380, 380); }
+
+            public override void OnGUI(Rect rect)
+            {
+                if (owner == null || renderer == null || renderer.sharedMesh == null)
+                {
+                    editorWindow.Close();
+                    return;
+                }
+
+                using (var data = new SerializedObject(owner))
+                {
+                    data.Update();
+                    var item = data.FindProperty(propertyPath);
+                    if (item == null || item.FindPropertyRelative("renderer").objectReferenceValue != renderer)
+                    {
+                        editorWindow.Close();
+                        return;
+                    }
+                    var names = item.FindPropertyRelative("blendShapeNames");
+                    var selected = new HashSet<string>();
+                    for (var i = 0; i < names.arraySize; i++) selected.Add(names.GetArrayElementAtIndex(i).stringValue);
+                    var mesh = renderer.sharedMesh;
+                    var available = Enumerable.Range(0, mesh.blendShapeCount).Select(mesh.GetBlendShapeName).ToList();
+                    var missing = selected.Except(available).ToList();
+                    search = EditorGUILayout.TextField("搜索", search);
+                    var visible = available.Concat(missing)
+                        .Where(name => name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
+                    EditorGUILayout.BeginHorizontal();
+                    var changed = false;
+                    if (GUILayout.Button("全选搜索结果"))
+                    {
+                        selected.UnionWith(visible.Except(missing));
+                        changed = true;
+                    }
+                    if (GUILayout.Button("清空全部")) { selected.Clear(); changed = true; }
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.LabelField("已选 " + selected.Count + " 个 · 可连续勾选", EditorStyles.miniLabel);
+                    scroll = EditorGUILayout.BeginScrollView(scroll);
+                    foreach (var name in visible)
+                    {
+                        var wasSelected = selected.Contains(name);
+                        var isSelected = EditorGUILayout.ToggleLeft(new GUIContent(name + (missing.Contains(name) ? "（已丢失）" : ""), name), wasSelected);
+                        if (isSelected == wasSelected) continue;
+                        if (isSelected) selected.Add(name); else selected.Remove(name);
+                        changed = true;
+                    }
+                    EditorGUILayout.EndScrollView();
+                    if (changed)
+                    {
+                        names.ClearArray();
+                        foreach (var name in available.Concat(missing).Where(selected.Contains).Distinct())
+                            names.GetArrayElementAtIndex(names.arraySize++).stringValue = name;
+                        data.ApplyModifiedProperties();
+                        EditorUtility.SetDirty(owner);
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(owner);
+                        repaint();
+                    }
+                    if (GUILayout.Button("完成")) editorWindow.Close();
+                }
+            }
         }
 
         private void DrawObjectMode()
@@ -830,4 +1005,3 @@ namespace AutoRadialMenu
     }
 }
 #endif
-

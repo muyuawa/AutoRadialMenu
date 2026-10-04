@@ -117,9 +117,22 @@ namespace AutoRadialMenu
                 frameRate = 60f
             };
 
-            var hasAnimation = menu.Mode == AutoRadialMenu.ActionMode.ObjectToggle
-                ? BuildObjectAnimation(menu, avatarRoot, clip)
-                : BuildMaterialAnimation(menu, avatarRoot, clip);
+            bool hasAnimation;
+            switch (menu.Mode)
+            {
+                case AutoRadialMenu.ActionMode.ObjectToggle:
+                    hasAnimation = BuildObjectAnimation(menu, avatarRoot, clip);
+                    break;
+                case AutoRadialMenu.ActionMode.MaterialReplacement:
+                    hasAnimation = BuildMaterialAnimation(menu, avatarRoot, clip);
+                    break;
+                case AutoRadialMenu.ActionMode.BlendShape:
+                    hasAnimation = BuildBlendShapeAnimation(menu, avatarRoot, clip);
+                    break;
+                default:
+                    hasAnimation = false;
+                    break;
+            }
 
             if (!hasAnimation)
             {
@@ -133,6 +146,41 @@ namespace AutoRadialMenu
             mergeAnimator.pathMode = MergeAnimatorPathMode.Absolute;
             mergeAnimator.matchAvatarWriteDefaults = false;
             mergeAnimator.deleteAttachedAnimator = true;
+        }
+
+        private static bool BuildBlendShapeAnimation(AutoRadialMenu menu, Transform avatarRoot, AnimationClip clip)
+        {
+            var bindings = new HashSet<EditorCurveBinding>();
+            foreach (var target in menu.BlendShapeTargets ?? new List<AutoRadialMenu.BlendShapeTarget>())
+            {
+                if (target == null || target.renderer == null) continue;
+                var renderer = target.renderer;
+                var mesh = renderer.sharedMesh;
+                if (mesh == null || !renderer.transform.IsChildOf(avatarRoot))
+                {
+                    Debug.LogWarning(string.Format("[自动轮盘] “{0}”没有网格或不在当前头像内，已跳过。", renderer.name), menu);
+                    continue;
+                }
+
+                foreach (var shapeName in target.blendShapeNames ?? new List<string>())
+                {
+                    if (string.IsNullOrEmpty(shapeName) || mesh.GetBlendShapeIndex(shapeName) < 0)
+                    {
+                        Debug.LogWarning(string.Format("[自动轮盘] “{0}”中找不到形态键“{1}”，已跳过。", renderer.name, shapeName), menu);
+                        continue;
+                    }
+
+                    var binding = EditorCurveBinding.FloatCurve(
+                        AnimationUtility.CalculateTransformPath(renderer.transform, avatarRoot),
+                        typeof(SkinnedMeshRenderer), "blendShape." + shapeName);
+                    if (!bindings.Add(binding)) continue;
+                    AnimationUtility.SetEditorCurve(clip, binding, AnimationCurve.Linear(0f, 0f, 1f, 100f));
+                }
+            }
+
+            if (bindings.Count == 0)
+                Debug.LogWarning("[自动轮盘] 形态键模式没有选择任何有效形态键。", menu);
+            return bindings.Count > 0;
         }
 
         private static bool BuildObjectAnimation(AutoRadialMenu menu, Transform avatarRoot, AnimationClip clip)
@@ -443,4 +491,3 @@ namespace AutoRadialMenu
     }
 }
 #endif
-
