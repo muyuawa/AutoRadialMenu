@@ -1,7 +1,7 @@
 {
   "name": "com.muyu.auto-radial-menu",
   "displayName": "Auto Radial Menu / 自动轮盘",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "unity": "2022.3",
   "description": "为 VRChat Avatar 自动生成 Radial Puppet 大轮盘，支持对象切换、多对象多材质替换，以及多对象多形态键 0–100 连续调节。",
   "author": {

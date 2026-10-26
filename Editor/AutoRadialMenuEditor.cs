@@ -17,6 +17,7 @@ namespace AutoRadialMenu
         private void OnEnable()
         {
             TryMigrateLegacyData();
+            SyncInstallTargetNames();
         }
 
         public override void OnInspectorGUI()
@@ -52,6 +53,7 @@ namespace AutoRadialMenu
             }
 
             serializedObject.ApplyModifiedProperties();
+            SyncInstallTargetNames();
 
             EditorGUILayout.Space(6);
             EditorGUILayout.HelpBox("构建时自动生成 VRChat 大轮盘，不修改当前编辑场景。", MessageType.Info);
@@ -581,16 +583,46 @@ namespace AutoRadialMenu
             }
         }
 
+        private void SyncInstallTargetNames()
+        {
+            var menu = (AutoRadialMenu)target;
+            var installer = menu.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMenuInstaller>();
+            var displayName = string.IsNullOrWhiteSpace(menu.MenuLabel) ? menu.gameObject.name : menu.MenuLabel;
+            foreach (var installTarget in AutoRadialMenuNDMFPlugin.FindObjectInstallTargets(menu, installer))
+            {
+                var targetObject = installTarget.gameObject;
+                if (targetObject.name == displayName) continue;
+                Undo.RecordObject(targetObject, "同步轮盘安装目标名称");
+                targetObject.name = displayName;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(targetObject);
+            }
+        }
+
         private void DrawInstallTarget()
         {
             var menu = (AutoRadialMenu)target;
             var installer = menu.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMenuInstaller>();
+            var objectTargets = AutoRadialMenuNDMFPlugin.FindObjectInstallTargets(menu, installer).ToArray();
             if (installer == null)
             {
                 EditorGUILayout.HelpBox(
                     "需要指定安装位置时，可以手动添加 Modular Avatar 菜单安装器并选择目标菜单；否则安装到头像根菜单。",
                     MessageType.Info
                 );
+            }
+            else if (objectTargets.Length > 0)
+            {
+                foreach (var installTarget in objectTargets)
+                {
+                    EditorGUILayout.ObjectField(
+                        "当前安装目标",
+                        installTarget.transform.parent != null
+                            ? installTarget.transform.parent.gameObject
+                            : installTarget.gameObject,
+                        typeof(GameObject),
+                        true
+                    );
+                }
             }
             else if (installer.installTargetMenu == null)
             {

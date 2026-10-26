@@ -59,8 +59,11 @@ namespace AutoRadialMenu
             var manualInstaller = FindManualInstaller(menu);
 
             var oldBuildRoot = host.transform.Find(BuildRootName);
+            var installTargets = FindObjectInstallTargets(menu, manualInstaller).ToList();
             if (oldBuildRoot != null)
             {
+                installTargets.AddRange(FindObjectInstallTargets(
+                    menu, oldBuildRoot.GetComponent<ModularAvatarMenuInstaller>()));
                 UnityEngine.Object.DestroyImmediate(oldBuildRoot.gameObject);
             }
 
@@ -71,6 +74,20 @@ namespace AutoRadialMenu
             installer.installTargetMenu = manualInstaller != null && manualInstaller.enabled
                 ? manualInstaller.installTargetMenu
                 : null;
+
+            // MA 对象菜单通过 Install Target 引用安装器，而不是 installTargetMenu 资源。
+            // 此方法只在构建克隆中调用，将这些引用转交给实际生成轮盘的安装器。
+            if (manualInstaller != null && manualInstaller.enabled)
+            {
+                foreach (var target in installTargets.Distinct())
+                {
+                    using (var data = new SerializedObject(target))
+                    {
+                        data.FindProperty("installer").objectReferenceValue = installer;
+                        data.ApplyModifiedPropertiesWithoutUndo();
+                    }
+                }
+            }
 
             var parameterName = string.IsNullOrWhiteSpace(menu.ParameterName)
                 ? "__AutoRadial/" + Sanitize(host.name)
@@ -473,6 +490,26 @@ namespace AutoRadialMenu
                 ? menu.LegacyOptions[0]
                 : null;
             return legacy != null ? legacy.icon : null;
+        }
+
+        internal static IEnumerable<Component> FindObjectInstallTargets(
+            AutoRadialMenu menu, ModularAvatarMenuInstaller installer)
+        {
+            if (installer == null) yield break;
+            var avatar = menu.GetComponentInParent<VRCAvatarDescriptor>(true);
+            if (avatar == null) yield break;
+
+            foreach (var component in avatar.GetComponentsInChildren<Component>(true))
+            {
+                // MA 的 Install Target 类型是 internal，使用其序列化字段读取引用。
+                if (component == null || component.GetType().FullName !=
+                    "nadena.dev.modular_avatar.core.ModularAvatarMenuInstallTarget") continue;
+                using (var data = new SerializedObject(component))
+                {
+                    if (data.FindProperty("installer").objectReferenceValue == installer)
+                        yield return component;
+                }
+            }
         }
 
         private static ModularAvatarMenuInstaller FindManualInstaller(AutoRadialMenu menu)

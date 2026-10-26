@@ -75,6 +75,8 @@ Packages/com.muyu.auto-radial-menu
 
 如果同一 GameObject 上手动添加了 **Modular Avatar Menu Installer**，插件会使用它指定的目标菜单；没有时默认安装到 Avatar 根菜单。
 
+支持通过 MA 的 **选择菜单** 安装到普通菜单资源或 MA 自动创建的对象菜单。使用对象菜单时，层级中的安装目标节点会跟随轮盘的 **菜单名称** 显示，修改名称后同步更新。
+
 ---
 
 ## 开关对象
